@@ -6,7 +6,7 @@ import requests
 import datetime
 
 
-async def getHTMLdocument(url):
+async def getHTMLdocument(url, loop):
     headers = {
         "User-agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36",
         "cookie": "AHWqTUlhftkLIuXSbIVa5uKh77iLa_kw1Tx9rkm3xTMos06ERQq3MgXWSdg7-iCp9WA"
@@ -19,9 +19,6 @@ async def get_data_adids(html_document):
     bs_4 = BeautifulSoup(html_document, "lxml")
     html_list_of_adds = bs_4.find(id="srchrslt-adtable")
     list_of_adds = html_list_of_adds.find_all(class_="ad-listitem lazyload-item")
-
-    with open("test.html", "w", encoding="utf-8") as file:
-        file.write(html_document)
 
     x = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
     data_adids = []
@@ -84,18 +81,20 @@ async def get_data_adids(html_document):
     return data_adids, dict_1
 
 
-async def process_link(link):
+async def process_link(link, loop):
     previos_link = [] # Big collect
     big_dict = {}
     i2 = 0
     while True:
-        html_document = await getHTMLdocument(link)
+        html_document = await getHTMLdocument(link, loop)
         list_1, dict_1 = await get_data_adids(html_document)
         for i in list_1:
             if i not in previos_link:
                 previos_link.append(i)
                 big_dict[i] = dict_1[i]
         if i2 == 12:
+
+
             for i in big_dict:
                 print("—------")
                 print(f'ID:{i}')
@@ -113,15 +112,29 @@ async def process_link(link):
         await asyncio.sleep(10)
 
 
-async def main(link_list):
-    tasks = [process_link(link) for link in link_list]
+async def main(link_list, loop):
+    tasks = [process_link(link, loop) for link in link_list]
     await asyncio.gather(*tasks)
 
 
-if __name__ == '__main__':
-    link_list = ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"]
+async def loop_scraper_start(link_list):
     loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(main(link_list))
+        await main(link_list, loop)
+    except RuntimeError as e:
+        if "This event loop is already running" in str(e):
+            pass  # Ignore the error if the event loop is already running
+        else:
+            raise  # Reraise the error if it's a different RuntimeError
     finally:
+        if loop.is_running():
+            loop.stop()
+            await loop.shutdown_asyncgens()
         loop.close()
+
+async def loop_loops(user_id):
+    while True:
+        print(user_id)
+        await asyncio.sleep(1)
+
+# loop_scraper_start(["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"])
