@@ -1,53 +1,62 @@
+import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
+from Bot_Folder.kleinanzeigen_scraper import loop_loops
+
 API_KEY = ""
 
-def exapmple_function():
+# Create an asyncio queue to handle user requests
+user_queue = asyncio.Queue()
+
+async def checker_list():
     list_of_users = {
-        "710680271": ["link1", "link2", "link3"],
-        "710680275": ["link1", "link2", "link3"],
-        "430680275": ["link1", "link2", "link3"],
-        "324450275": ["link1", "link2", "link3"],
+        "7106802741": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
+        "710680275": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
+        "430680275": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
+        "324450275": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"]
     }
     return list_of_users
 
-async def start_command(update:Update, context: ContextTypes.DEFAULT_TYPE):
-    text, dict_of_user_links = checker_function(update.message.chat)
-    await update.message.reply_text(
-            text
-            # Checking function
-    )
-
-def checker_function(user_id):
-    id = user_id["id"]
-    first_name = user_id["first_name"]
-    last_name = user_id["last_name"]
-    try:
-        list_of_users = exapmple_function()
-        for vip_user in list_of_users:
-            if str(vip_user) == str(id):
-                dict_of_user_links = {str(vip_user): list_of_users[str(vip_user)]}
-                print("User is in DB!")
-                return f"Welcome back, {first_name} {last_name}!",dict_of_user_links
-
-        print("User is not in DB!")
-        return f"Sorry, {first_name}. You are not in the list:(\nIf you want to run bot go to https://www.kleinanzeigen.de/", 0
-    except:
-        print(id, first_name, last_name)
-        return f"Sorry, there was an error :/", 0
 
 
-async def handle_message(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    message_type: str = update.message.chat.type
-    text: str = update.message.text
-    print(f"User {update.message.chat.id} in {message_type}: {text}")
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.chat.id)
+    await update.message.chat.send_message("Bot is started.")
+    await user_queue.put(user_id)  # Put user ID into the queue
+
+
+async def worker(user_id):
+    while True:
+        dict_list = await checker_list()
+        if user_id in dict_list:
+            print("Message")
+            await loop_loops(user_id)
+
+        else:
+            print("123")
+            await asyncio.sleep(1)
+        # Add your logic here for processing the user's request
+
+
+
+
+async def process_users():
+    while True:
+        user_id = await user_queue.get()  # Get user ID from the queue
+        asyncio.create_task(worker(user_id))  # Create a worker task for the user
+        user_queue.task_done()  # Mark task as done
 
 
 if __name__ == '__main__':
     print("Bot started")
+
+    # Create and configure the application
     app = Application.builder().token(API_KEY).build()
     app.add_handler(CommandHandler('start', start_command))
 
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
+    # Start the user processing loop
+    loop = asyncio.get_event_loop()
+    loop.create_task(process_users())
 
+    # Run the application
     app.run_polling(poll_interval=1)
