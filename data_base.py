@@ -57,7 +57,7 @@ def function_1(results, user_id):
         if user_id == logged_user_id:
             user_links_list.append(link)
         else:
-            # user_links_list.append(link)
+            user_links_list.append(link)
             pass
     # user_links_list.append("https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331")
     return user_links_list

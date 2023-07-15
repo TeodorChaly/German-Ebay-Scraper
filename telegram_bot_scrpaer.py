@@ -1,19 +1,17 @@
 import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from Bot_Folder.kleinanzeigen_scraper import loop_loops
+from Bot_Folder.kleinanzeigen_scraper import loop_scraper_start
 
-API_KEY = ""
+API_KEY = "6275639460:AAEGOkGRrgsG0cHMIXGLYiTh2LkipMZwnpk"
 
 # Create an asyncio queue to handle user requests
 user_queue = asyncio.Queue()
 
 async def checker_list():
     list_of_users = {
-        "7106802741": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
-        "710680275": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
-        "430680275": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
-        "324450275": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"]
+        "710680274": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331", "https://www.kleinanzeigen.de/s-lego/k0"],
+        "591866484": ["https://www.kleinanzeigen.de/s-berlin/audi/k0l3331", "https://www.kleinanzeigen.de/s-berlin/samsung/k0l3331"],
     }
     return list_of_users
 
@@ -24,17 +22,26 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.chat.send_message("Bot is started.")
     await user_queue.put(user_id)  # Put user ID into the queue
 
-
 async def worker(user_id):
     while True:
         dict_list = await checker_list()
         if user_id in dict_list:
-            print("Message")
-            await loop_loops(user_id)
+            await loop_scraper_start(dict_list[user_id], user_id)
+            await send_message(user_id, "Scraping completed.")  # Sending a completion message
 
         else:
-            print("123")
+            print(user_id)
+            await send_message(user_id, "No URLs found for scraping.")  # Sending a message when no URLs are found
             await asyncio.sleep(1)
+            break
+
+
+async def send_message(user_id, message):
+    try:
+        await app.bot.send_message(chat_id=user_id, text=message)
+    except Exception as e:
+        print(f"Failed to send message to user {user_id}: {str(e)}")
+
         # Add your logic here for processing the user's request
 
 

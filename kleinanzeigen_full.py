@@ -1,10 +1,12 @@
 import pytz
+from aiogram.types import ParseMode
 from bs4 import BeautifulSoup
 import requests
 import datetime
 import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from Bot_Folder.data_base import connection
 
 
 async def get_html_document(url, loop_variable):
@@ -13,14 +15,21 @@ async def get_html_document(url, loop_variable):
         "cookie": "AHWqTUlhftkLIuXSbIVa5uKh77iLa_kw1Tx9rkm3xTMos06ERQq3MgXWSdg7-iCp9WA"
     }
     response = await loop_variable.run_in_executor(None, lambda: requests.get(url, headers=headers))
-    return response.text
+    status_connection = response.status_code
 
+    if status_connection == 200:
+        return response.text
+    else:
+        return 300
 
 async def get_data_adids(html_document):
     bs_4 = BeautifulSoup(html_document, "lxml")
-    html_list_of_adds = bs_4.find(id="srchrslt-adtable")
-    list_of_adds = html_list_of_adds.find_all(class_="ad-listitem lazyload-item")
-
+    try:
+        html_list_of_adds = bs_4.find(id="srchrslt-adtable")
+        list_of_adds = html_list_of_adds.find_all(class_="ad-listitem lazyload-item")
+    except:
+        print("Error", end="")
+        return [], {}
     x = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
     data_adids = []
     dict_1 = {}
@@ -32,52 +41,57 @@ async def get_data_adids(html_document):
         try:
             text_time = i.find(class_="ellipsis")["href"]
         except:
-            text_time = "None"
+            text_time = "No time"
         try:
             price = i.find(class_="aditem-main--middle--price-shipping--price")
             price = price.get_text()
             price = price.strip()
         except:
-            price = "None"
+            price = "No price"
         try:
             location = i.find(class_="aditem-main--top--left")
             location = location.get_text()
             location = location.strip()
         except:
-            location = "None"
+            location = "No location"
         try:
             description = i.find(class_="aditem-main--middle--description")
             description = description.get_text()
             description = description.strip()
         except:
-            description = "None"
+            description = "No description"
 
         try:
             note = i.find(class_="text-module-end")
             note = note.get_text()
             note = note.strip()
         except:
-            note = "None"
+            note = "No notes"
 
         try:
             text = i.find(class_="ellipsis")
             text = text.get_text()
             text = text.strip()
         except:
-            text = "None"
+            text = "No text"
 
         time = (time.get_text()).strip()
-        time = time.split(", ")[1]
-        if len(time.split(":")[0]) == 1:
-            time = "0" + time
-        item_time = datetime.datetime.strptime(time, "%H:%M").time()
-        time_diff = datetime.datetime.combine(datetime.date.today(), x.time()) - datetime.datetime.combine(
-            datetime.date.today(), item_time)
-        time_diff_minutes = time_diff.seconds // 60
-        if time_diff_minutes == 1 or time_diff_minutes == 2 or time_diff_minutes == 3:
-            dict_1[unic_id] = {"link": "https://www.kleinanzeigen.de/" + text_time, "time": time, "price": price, "location": location, "description": description,
-                               "note": note, "text": text}
-            data_adids.append(unic_id)
+        try:
+            time_day = time.split(", ")[0]
+            if time_day == "Heute":
+                time = time.split(", ")[1]
+                if len(time.split(":")[0]) == 1:
+                    time = "0" + time
+                item_time = datetime.datetime.strptime(time, "%H:%M").time()
+                time_diff = datetime.datetime.combine(datetime.date.today(), x.time()) - datetime.datetime.combine(
+                    datetime.date.today(), item_time)
+                time_diff_minutes = time_diff.seconds // 60
+                if time_diff_minutes == 1 or time_diff_minutes == 2 or time_diff_minutes == 3:
+                    dict_1[unic_id] = {"link": "https://www.kleinanzeigen.de" + text_time, "time": time, "price": price, "location": location, "description": description,
+                                       "note": note, "text": text}
+                    data_adids.append(unic_id)
+        except:
+            pass
         else:
             pass
     return data_adids, dict_1
@@ -88,42 +102,67 @@ async def process_link(link, loop_variable, user_id):
     big_dict = {}
     i2 = 0
     while True:
-        html_document = await get_html_document(link, loop_variable)
-        list_1, dict_1 = await get_data_adids(html_document)
-        for i in list_1:
-            if i not in previous_link:
-                previous_link.append(i)
-                big_dict[i] = dict_1[i]
-        if i2 == 12:
 
-            print("For -", user_id)
-            await send_message_to_tg(user_id, f"Scraping results for {user_id}")
+        try:
+            html_document = await get_html_document(link, loop_variable)
+            if html_document == 300:
+                print("No connection")
+            else:
+                list_1, dict_1 = await get_data_adids(html_document)
+                for i in list_1:
+                    if i not in previous_link:
+                        previous_link.append(i)
+                        big_dict[i] = dict_1[i]
 
-            for i in big_dict:
-                message_for_user = ""
-                print("—------")
-                print(f'ID:{i}')
-                message_for_user += f"ID:{i}\n"
-                print(f'Link: {big_dict[i]["link"]}')
-                message_for_user += f'Link: {big_dict[i]["link"]}\n'
-                print(f'Time and price: {big_dict[i]["time"], big_dict[i]["price"]}')
-                message_for_user += f'Time and price: {big_dict[i]["time"], big_dict[i]["price"]}\n'
-                print(f'Text: {big_dict[i]["text"]}')
-                message_for_user += f'Text: {big_dict[i]["text"]}\n'
-                print(f'Description: {big_dict[i]["description"]}')
-                message_for_user += f'Description: {big_dict[i]["description"]}\n'
-                print(f'{big_dict[i]["note"]}')
-                message_for_user += f'Note - {big_dict[i]["note"]}\n'
-                print(f'{big_dict[i]["location"]}')
-                message_for_user += f'{big_dict[i]["location"]}\n'
-                await send_message_to_tg(user_id, message_for_user)
+                if i2 == 3:
+                    for i in big_dict:
+                        message_for_user = ""
+                        print("—------")
 
-            # await Bot_Folder. (user_id, "Result")
-            big_dict = {}
-            i2 = 0
-        print(i2, "for", user_id, " - ", link)
+                        # print(f'ID:{i}')
+                        # message_for_user += f"ID:{i}\n"
+                        #    await update.message.chat.send_message(f'<a href="{link}">{text} ist neu auf Kleinanzeigen‼</a>\n\n', parse_mode=ParseMode.HTML)
+
+
+                        message_for_user += f'<a href="{big_dict[i]["link"]}">{big_dict[i]["text"]} ist neu auf Kleinanzeigen‼</a>\n\n'
+                        message_for_user += f'🛒 Preis: {big_dict[i]["price"]}\n'
+                        message_for_user += f'📍 Ort: {big_dict[i]["location"]}\n\n'
+                        message_for_user += f'🔍 Details: {big_dict[i]["note"]}\n'
+                        message_for_user += f'📝 Beschreibung: {big_dict[i]["description"]}\n'
+
+                        # print(f'Text: {big_dict[i]["text"]}')
+                        # message_for_user += f'{big_dict[i]["text"]}\n'
+                        #
+                        # print(f'Link: {big_dict[i]["link"]}')
+                        # message_for_user += f'Link: {big_dict[i]["link"]}\n'
+                        #
+                        # print(f'Time: {big_dict[i]["time"]}')
+                        # message_for_user += f'Time: {big_dict[i]["time"]}\n'
+                        #
+                        # print(f'Price: {big_dict[i]["price"]}')
+                        # message_for_user += f'Price: {big_dict[i]["price"]}\n'
+                        #
+                        # print(f'Location: {big_dict[i]["location"]}')
+                        # message_for_user += f'Location:  {big_dict[i]["location"]}\n'
+                        #
+                        # print(f'Note: {big_dict[i]["note"]}')
+                        # message_for_user += f'Note: {big_dict[i]["note"]}\n'
+                        #
+                        # print(f'Description: {big_dict[i]["description"]}')
+                        # message_for_user += f'Description: {big_dict[i]["description"]}\n'
+
+                        await send_message_to_tg(user_id, message_for_user)
+
+                    big_dict = {}
+                    i2 = 0
+
+        except Exception as es:
+            print("Bad connection with site or problem with link!")
+
+        print("Iteration count - ", i2, ". For user:", user_id, " - ", link)
+
         i2 += 1
-        await asyncio.sleep(10)
+        await asyncio.sleep(30)
 
 
 async def main(link_list, loop_variable, user_id):
@@ -153,35 +192,31 @@ async def loop_loops(user_id):
         await asyncio.sleep(1)
 
 
-API_KEY = ""
+
+
+
+
+
+API_KEY = "5920956106:AAEA0CphZm-UN3JBEl_ZX_obABg-BAin7GU"
 
 # Create an asyncio queue to handle user requests
 user_queue = asyncio.Queue()
 
 
-async def checker_list():
-    list_of_users = {
-        "710680271": ["https://www.kleinanzeigen.de/s-berlin/bmw/k0l3331", "https://www.kleinanzeigen.de/s-berlin/apple/k0l3331"],
-        "591866481": ["https://www.kleinanzeigen.de/s-berlin/audi/k0l3331", "https://www.kleinanzeigen.de/s-berlin/samsung/k0l3331"],
-    }
-    return list_of_users
-
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.chat.id)
-    await update.message.chat.send_message("Bot is started.")
+    await update.message.chat.send_message("Hello! Wait a sec, i need to check - if you're in the database.")
     await user_queue.put(user_id)  # Put user ID into the queue
 
 
 async def worker(user_id):
     while True:
-        dict_list = await checker_list()
-        if user_id in dict_list:
-            await loop_scraper_start(dict_list[user_id], user_id)
+        db_url_list = connection(user_id)
+        if len(db_url_list) != 0:
+            await loop_scraper_start(db_url_list, user_id)
             await send_message_to_tg(user_id, "Scraping completed.")  # Sending a completion message
-
         else:
-            print(user_id)
+            print(f"User with id: {user_id} tries to join bot without logg in")
             await send_message_to_tg(user_id, "No URLs found for scraping.")  # Sending a message when no URLs are found
             await asyncio.sleep(1)
             break
@@ -189,7 +224,7 @@ async def worker(user_id):
 
 async def send_message_to_tg(user_id, message):
     try:
-        await app.bot.send_message(chat_id=user_id, text=message)
+        await app.bot.send_message(chat_id=user_id, text=message, parse_mode = ParseMode.HTML)
         # Send message
     except Exception as e:
         print(f"Failed to send message to user {user_id}: {str(e)}")
