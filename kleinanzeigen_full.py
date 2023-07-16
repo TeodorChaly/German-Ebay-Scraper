@@ -28,7 +28,7 @@ async def get_data_adids(html_document):
         html_list_of_adds = bs_4.find(id="srchrslt-adtable")
         list_of_adds = html_list_of_adds.find_all(class_="ad-listitem lazyload-item")
     except:
-        print("Error", end="")
+        print("There was a no post at all - ", end="")
         return [], {}
     x = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
     data_adids = []
@@ -47,26 +47,31 @@ async def get_data_adids(html_document):
             price = price.get_text()
             price = price.strip()
         except:
-            price = "No price"
+            price = "No Preis"
         try:
             location = i.find(class_="aditem-main--top--left")
             location = location.get_text()
             location = location.strip()
+            location = "".join(line.lstrip() for line in location.split("\n"))
+
         except:
-            location = "No location"
+            location = "No Ort"
         try:
             description = i.find(class_="aditem-main--middle--description")
             description = description.get_text()
             description = description.strip()
         except:
-            description = "No description"
+            description = "No Beschreibung"
 
         try:
             note = i.find(class_="text-module-end")
             note = note.get_text()
             note = note.strip()
+            if note == "":
+                note = "No note"
+
         except:
-            note = "No notes"
+            note = "No note"
 
         try:
             text = i.find(class_="ellipsis")
@@ -102,7 +107,6 @@ async def process_link(link, loop_variable, user_id):
     big_dict = {}
     i2 = 0
     while True:
-
         try:
             html_document = await get_html_document(link, loop_variable)
             if html_document == 300:
@@ -114,10 +118,10 @@ async def process_link(link, loop_variable, user_id):
                         previous_link.append(i)
                         big_dict[i] = dict_1[i]
 
-                if i2 == 3:
+                if i2 == 6: # Fast setting
                     for i in big_dict:
                         message_for_user = ""
-                        print("—------")
+                        print(i, big_dict[i]["link"])
 
                         # print(f'ID:{i}')
                         # message_for_user += f"ID:{i}\n"
@@ -129,6 +133,7 @@ async def process_link(link, loop_variable, user_id):
                         message_for_user += f'📍 Ort: {big_dict[i]["location"]}\n\n'
                         message_for_user += f'🔍 Details: {big_dict[i]["note"]}\n'
                         message_for_user += f'📝 Beschreibung: {big_dict[i]["description"]}\n'
+                        message_for_user += f'Time: {big_dict[i]["time"]}\n'
 
                         # print(f'Text: {big_dict[i]["text"]}')
                         # message_for_user += f'{big_dict[i]["text"]}\n'
@@ -162,7 +167,7 @@ async def process_link(link, loop_variable, user_id):
         print("Iteration count - ", i2, ". For user:", user_id, " - ", link)
 
         i2 += 1
-        await asyncio.sleep(30)
+        await asyncio.sleep(15) # Fast setting
 
 
 async def main(link_list, loop_variable, user_id):
@@ -197,7 +202,7 @@ async def loop_loops(user_id):
 
 
 
-API_KEY = "5920956106:AAEA0CphZm-UN3JBEl_ZX_obABg-BAin7GU"
+API_KEY = ""
 
 # Create an asyncio queue to handle user requests
 user_queue = asyncio.Queue()
