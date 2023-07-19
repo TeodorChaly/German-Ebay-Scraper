@@ -150,7 +150,6 @@ async def main_scrape(link_list, loop_variable, user_id):
     await asyncio.gather(*tasks)
 
 
-
 async def loop_scraper_start(link_list, user_id):
     loop_veriable = asyncio.get_event_loop()
     try:
@@ -194,34 +193,46 @@ async def function_1(results):
     return user_links_list
 
 
+
+
 async def send_message_to_user(user_id, message):
-    bot_token = ''
+    bot_token = '5920956106:AAEA0CphZm-UN3JBEl_ZX_obABg-BAin7GU'
     bot = Bot(token=bot_token)
-    await bot.send_message(chat_id=user_id, text=message)
+    await bot.send_message(chat_id=user_id, text=message, parse_mode=ParseMode.HTML)
+
+
 
 
 async def main():
+    repead = 1
+    main_user_list = []
     while True:
         new_user_links = await test_db()
+        if repead >= 3:
+            new_user_links.append(["", "", "591866484", "", "", "", "https://www.kleinanzeigen.de/s-new-nintendo-2ds-xl/k0", ])
+            new_user_links.append(["", "", "591866484", "", "", "", "https://www.ebay-kleinanzeigen.de/s-preis::700/49-zoll-monitor/k0", ])
+            new_user_links.append(["", "", "591866484", "", "", "", "https://www.ebay-kleinanzeigen.de/s-wii-spielesammlung/k0", ])
+            new_user_links.append(["", "", "591866484", "", "", "", "https://www.kleinanzeigen.de/s-tiptoi/k0", ])
         dict_of_users = await function_1(new_user_links)
 
-        for user_id in dict_of_users:
-            await send_message_to_user(user_id, "Hello, i am testing now a new version of scraper and you was in db)")
-        print("Lol")
+
+
         try:
             tasks = []
             for user_id in dict_of_users:
-                print(user_id)
-                tasks.append(loop.create_task(loop_scraper_start(dict_of_users[user_id], user_id)))
+                if user_id not in main_user_list:
+                    tasks.append(loop.create_task(loop_scraper_start(dict_of_users[user_id], user_id)))
+                    main_user_list.append(user_id)
 
-            # Wait for all tasks to complete
-            await asyncio.wait(tasks)
 
         except:
             print("No chat")
-
-        await asyncio.sleep(15)
-
+        print(repead)
+        repead += 1
+        # Introduce a 2-minute delay before the next iteration
+        await asyncio.sleep(3)  # 2 minutes = 120 seconds
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+loop.create_task(main())
+loop.run_forever()
+
